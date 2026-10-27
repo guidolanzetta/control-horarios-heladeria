@@ -1,0 +1,998 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Control de Horarios - Heladería</title>
+<style>
+  :root {
+    --cream: #F2FAF6;
+    --paper: #FFFFFF;
+    --ink: #1E2A3A;
+    --ink-soft: #5B6F82;
+    --berry: #D6336C;
+    --berry-dark: #A8205A;
+    --mint: #1E8566;
+    --gold: #E0A82E;
+    --line: #D3E7DF;
+    --pill-in: #D9F2E8;
+    --pill-out: #FBDDE8;
+    --radius: 14px;
+  }
+  body.dark {
+    --cream: #101C22;
+    --paper: #17262E;
+    --ink: #E8F4F0;
+    --ink-soft: #9DB5BD;
+    --berry: #E8527F;
+    --berry-dark: #D6336C;
+    --mint: #5FD0A8;
+    --gold: #F0BE55;
+    --line: #26404A;
+    --pill-in: #1B3D33;
+    --pill-out: #4A1F33;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--cream);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+    transition: background .25s ease, color .25s ease;
+  }
+  header {
+    padding: 26px 20px 16px;
+    text-align: center;
+    border-bottom: 1px solid var(--line);
+    background: var(--cream);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  header h1 { font-family: Georgia, 'Times New Roman', serif; font-weight: 700; font-size: 24px; margin: 0 0 2px; letter-spacing: -0.01em; }
+  header p { margin: 0; font-size: 13px; color: var(--ink-soft); }
+  .mode-flag {
+    display: inline-block; margin-top: 8px; font-size: 10.5px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .04em; padding: 3px 9px; border-radius: 999px;
+  }
+  .mode-flag.cloud { background: var(--pill-in); color: var(--mint); }
+  .mode-flag.local { background: #FBEFCF; color: #8A5A00; }
+  .mode-flag.pending { background: var(--pill-out); color: var(--berry-dark); }
+  .clock {
+    font-family: 'SF Mono', 'Courier New', monospace;
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--ink-soft);
+    margin-top: 6px;
+  }
+  nav.tabs {
+    display: flex; max-width: 620px; margin: 16px auto 0; background: var(--paper);
+    border: 1px solid var(--line); border-radius: 999px; padding: 4px;
+  }
+  nav.tabs button {
+    flex: 1; border: none; background: transparent; padding: 10px 8px;
+    font-family: inherit; font-weight: 700; font-size: 14px;
+    color: var(--ink-soft); border-radius: 999px; cursor: pointer;
+  }
+  nav.tabs button.active { background: var(--berry); color: #fff; }
+  main { max-width: 620px; margin: 0 auto; padding: 20px 16px 60px; }
+  .view { display: none; }
+  .view.active { display: block; }
+
+  .people-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  @media (min-width: 460px) {
+    .people-grid { grid-template-columns: 1fr 1fr; }
+  }
+  .person-card {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 16px;
+    text-align: center;
+  }
+  .person-card-name { font-family: Georgia, 'Times New Roman', serif; font-size: 17px; font-weight: 700; margin-bottom: 8px; }
+  .status-line { display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 12.5px; font-weight: 700; margin-bottom: 4px; }
+  .status-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--ink-soft); flex-shrink: 0; }
+  .status-line.in .status-dot { background: var(--mint); }
+  .status-line.in .status-text { color: var(--mint); }
+  .status-line.out .status-text { color: var(--ink-soft); }
+  .since-text { font-size: 11px; color: var(--ink-soft); margin-bottom: 12px; min-height: 14px; }
+  .punch-btn {
+    width: 100%;
+    border: none;
+    border-radius: 10px;
+    padding: 12px;
+    font-family: inherit;
+    font-weight: 700;
+    font-size: 13.5px;
+    cursor: pointer;
+  }
+  .punch-btn.enter { background: var(--mint); color: #fff; }
+  .punch-btn.exit { background: var(--berry); color: #fff; }
+  .punch-btn:disabled { opacity: .6; cursor: default; }
+
+  .ticket { background: var(--paper); border-radius: var(--radius); border: 1px solid var(--line); padding: 18px; margin-bottom: 16px; }
+  .ticket h3 { font-family: Georgia, 'Times New Roman', serif; font-size: 15px; font-weight: 700; margin: 0 0 12px; }
+  .log-row { display: flex; justify-content: space-between; align-items: center; padding: 9px 0; border-bottom: 1px dashed var(--line); font-size: 13px; }
+  .log-row:last-child { border-bottom: none; }
+  .log-time { font-family: 'SF Mono', 'Courier New', monospace; font-weight: 700; color: var(--ink-soft); width: 52px; flex-shrink: 0; }
+  .log-person { flex: 1; font-weight: 600; padding: 0 8px; }
+  .log-type { font-size: 11px; font-weight: 700; text-transform: uppercase; padding: 3px 8px; border-radius: 6px; }
+  .log-type.in { background: var(--pill-in); color: var(--mint); }
+  .log-type.out { background: var(--pill-out); color: var(--berry-dark); }
+  body.dark .log-type.out { color: var(--berry); }
+  .empty-note { text-align: center; color: var(--ink-soft); font-size: 13px; padding: 14px 0; }
+
+  .ticket-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; gap: 10px; }
+  .ticket-row label { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-soft); font-weight: 700; }
+  input[type="month"], input[type="time"] {
+    font-family: 'SF Mono', 'Courier New', monospace; font-weight: 700; font-size: 14px;
+    border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; background: var(--cream); color: var(--ink);
+  }
+  .filter-select {
+    font-family: inherit; font-weight: 700; font-size: 13px;
+    border: 1px solid var(--line); border-radius: 8px; padding: 7px 26px 7px 10px;
+    background: var(--cream) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%235B6F82'/%3E%3C/svg%3E") no-repeat right 9px center;
+    color: var(--ink); appearance: none; -webkit-appearance: none; min-width: 130px;
+  }
+  .pin-input {
+    display: block;
+    width: 100%;
+    max-width: 220px;
+    margin: 16px auto 14px;
+    text-align: center;
+    letter-spacing: .2em;
+    font-family: 'SF Mono', 'Courier New', monospace;
+    font-weight: 700;
+    font-size: 18px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 12px;
+    background: var(--cream);
+    color: var(--ink);
+  }
+
+  .summary-card { background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px 18px; margin-bottom: 16px; }
+  .summary-card h3 { font-family: Georgia, 'Times New Roman', serif; font-size: 15px; font-weight: 700; margin: 0 0 4px; }
+  .summary-card .sub { font-size: 11.5px; color: var(--ink-soft); margin-bottom: 12px; }
+
+  .total-stamp { text-align: center; padding: 8px 0; }
+  .total-stamp .n { font-family: Georgia, 'Times New Roman', serif; font-weight: 700; font-size: 38px; color: var(--gold); line-height: 1; }
+  .total-stamp .label { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-soft); margin-top: 4px; }
+  .vs-prev {
+    text-align: center; font-size: 12.5px; font-weight: 700; padding-top: 10px;
+    border-top: 1px dashed var(--line); color: var(--ink-soft);
+  }
+  .vs-prev.up { color: var(--berry); }
+  .vs-prev.down { color: var(--mint); }
+
+  .hour-bars { display: flex; flex-direction: column; gap: 13px; }
+  .hour-bar-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; }
+  .hour-bar-name { font-size: 13.5px; font-weight: 700; }
+  .hour-bar-count { font-family: 'SF Mono', 'Courier New', monospace; font-size: 12.5px; color: var(--ink-soft); font-weight: 700; }
+  .hour-bar-track { height: 10px; background: var(--cream); border-radius: 6px; overflow: hidden; }
+  .hour-bar-fill { height: 100%; background: var(--gold); border-radius: 6px; transition: width .3s; }
+  .hour-bar-sub { font-size: 10.5px; color: var(--ink-soft); margin-top: 3px; }
+
+  .anomaly-row {
+    background: var(--cream); border: 1px solid var(--pill-out); border-radius: 10px;
+    padding: 12px; margin-bottom: 10px;
+  }
+  .anomaly-top { font-size: 13px; font-weight: 700; color: var(--berry-dark); margin-bottom: 8px; }
+  .anomaly-fix { display: flex; gap: 8px; align-items: center; }
+  .anomaly-fix button {
+    background: var(--mint); color: #fff; border: none; border-radius: 8px;
+    padding: 8px 12px; font-family: inherit; font-weight: 700; font-size: 12px; cursor: pointer; white-space: nowrap;
+  }
+
+  .missing-ok { text-align: center; color: var(--mint); font-weight: 700; font-size: 13.5px; padding: 6px 0; }
+
+  .btn-primary {
+    width: 100%;
+    background: var(--berry);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    padding: 13px;
+    font-family: inherit;
+    font-weight: 700;
+    font-size: 14px;
+    cursor: pointer;
+    margin-top: 4px;
+  }
+  .btn-primary:disabled { opacity: .6; cursor: default; }
+
+  .log-table-wrap { max-height: 340px; overflow-y: auto; }
+  table.log-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  table.log-table th { position: sticky; top: 0; background: var(--paper); text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: .03em; color: var(--ink-soft); padding: 6px 4px; border-bottom: 1px solid var(--line); }
+  table.log-table td { padding: 7px 4px; border-bottom: 1px dashed var(--line); }
+  table.log-table td.num { font-family: 'SF Mono', 'Courier New', monospace; font-weight: 700; }
+  table.log-table tr.open td { color: var(--berry-dark); font-weight: 700; }
+  table.log-table tr.totals-row td { border-top: 2px solid var(--ink); border-bottom: none; padding-top: 10px; }
+
+  .loading-note, .error-note { text-align: center; color: var(--ink-soft); font-size: 13px; padding: 20px 10px; }
+  .error-note { color: var(--berry); font-weight: 700; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🍦 Control de Horarios</h1>
+  <p>Heladería · Marcá tu entrada y salida</p>
+  <div class="clock" id="live-clock">--:--:--</div>
+  <span class="mode-flag" id="mode-flag">Detectando...</span>
+  <nav class="tabs">
+    <button id="tab-fichar" class="active" onclick="switchView('fichar')">Fichar</button>
+    <button id="tab-resumen" onclick="switchView('resumen')">Resumen</button>
+  </nav>
+</header>
+
+<main>
+
+  <!-- FICHAR -->
+  <section id="view-fichar" class="view active">
+    <div class="people-grid" id="people-grid"></div>
+
+    <div class="ticket">
+      <h3>Marcas de hoy</h3>
+      <div id="today-log"></div>
+    </div>
+  </section>
+
+  <!-- RESUMEN -->
+  <section id="view-resumen" class="view">
+
+    <div class="ticket" id="pin-gate" style="text-align:center;">
+      <h3 style="margin-top:0;">🔒 Resumen protegido</h3>
+      <div class="sub">Ingresá el PIN para ver el resumen</div>
+      <input type="password" id="pin-input" inputmode="numeric" autocomplete="off"
+             placeholder="PIN" class="pin-input">
+      <button class="btn-primary" onclick="checkPin()">Desbloquear</button>
+      <div id="pin-error" style="display:none; color: var(--berry); font-weight:700; font-size:12.5px; margin-top:10px;">
+        PIN incorrecto.
+      </div>
+    </div>
+
+    <div id="resumen-area" style="display:none;">
+      <div class="ticket">
+        <div class="ticket-row">
+          <label>Mes</label>
+          <input type="month" id="month-input">
+        </div>
+        <div class="ticket-row">
+          <label>Persona</label>
+          <select id="person-filter" class="filter-select">
+            <option value="">Todos</option>
+          </select>
+        </div>
+        <div class="ticket-row" style="margin-bottom: 0;">
+          <label>Día</label>
+          <select id="day-filter" class="filter-select">
+            <option value="">Todos los días</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="summary-loading" class="loading-note">Calculando...</div>
+      <div id="summary-error" class="error-note" style="display:none;"></div>
+
+      <div id="summary-content" style="display:none;">
+
+        <div class="summary-card">
+          <h3>Horas por día</h3>
+          <div class="sub" id="daily-matrix-sub">Cuánto trabajó cada uno, día por día</div>
+          <div class="log-table-wrap">
+            <table class="log-table" id="daily-matrix"></table>
+          </div>
+        </div>
+
+        <div class="summary-card">
+          <h3>Registro del mes</h3>
+          <div class="log-table-wrap">
+            <table class="log-table" id="log-table"></table>
+          </div>
+        </div>
+
+        <button class="btn-primary" id="export-btn" onclick="exportExcel()">Descargar Excel del mes</button>
+
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- Cliente de Supabase (base de datos compartida). Se carga antes que nuestro script. -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+
+<script>
+const PEOPLE = ["Nico", "Joaco", "Jian", "Maxi"];
+const WEEKDAYS = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+const WEEKDAYS_SHORT = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+const MONTH_NAMES = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+
+function weekdayShort(dateStr) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return WEEKDAYS_SHORT[new Date(y, m - 1, d).getDay()];
+}
+
+function prevMonthStr(monthStr) {
+  const [y, m] = monthStr.split('-').map(Number);
+  const d = new Date(y, m - 2, 1);
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}`;
+}
+function monthNameEs(monthStr) {
+  const [, m] = monthStr.split('-').map(Number);
+  return MONTH_NAMES[m - 1];
+}
+
+const monthCaches = {};
+
+function pad2(n) { return String(n).padStart(2, '0'); }
+function todayStr() {
+  const d = new Date();
+  const tz = d.getTimezoneOffset() * 60000;
+  return new Date(d - tz).toISOString().slice(0, 10);
+}
+function currentMonthStr() { return todayStr().slice(0, 7); }
+function nowTimeStr() {
+  const d = new Date();
+  return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+}
+function prevDateStr(dateStr) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const dt = new Date(y, m - 1, d);
+  dt.setDate(dt.getDate() - 1);
+  return `${dt.getFullYear()}-${pad2(dt.getMonth() + 1)}-${pad2(dt.getDate())}`;
+}
+function isNightHours() {
+  const h = new Date().getHours();
+  return h < 9 || h >= 18;
+}
+function minutesBetween(inStr, outStr) {
+  const [ih, im] = inStr.split(':').map(Number);
+  const [oh, om] = outStr.split(':').map(Number);
+  let diff = (oh * 60 + om) - (ih * 60 + im);
+  if (diff < 0) diff += 24 * 60; // cruzó la medianoche
+  return diff;
+}
+function formatHM(mins) {
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return `${h}h ${pad2(m)}m`;
+}
+
+// --- PIN del resumen ---
+const RESUMEN_PIN = "40729349";
+let resumenUnlocked = false;
+
+function switchView(name) {
+  ['fichar', 'resumen'].forEach(v => {
+    document.getElementById(`view-${v}`).classList.toggle('active', v === name);
+    document.getElementById(`tab-${v}`).classList.toggle('active', v === name);
+  });
+  if (name === 'resumen') {
+    if (resumenUnlocked) {
+      loadSummary();
+    } else {
+      showPinGate();
+    }
+  }
+}
+
+function showPinGate() {
+  document.getElementById('pin-gate').style.display = 'block';
+  document.getElementById('resumen-area').style.display = 'none';
+  const input = document.getElementById('pin-input');
+  input.value = '';
+  document.getElementById('pin-error').style.display = 'none';
+  setTimeout(() => input.focus(), 50);
+}
+
+function checkPin() {
+  const input = document.getElementById('pin-input');
+  if (input.value === RESUMEN_PIN) {
+    resumenUnlocked = true;
+    document.getElementById('pin-gate').style.display = 'none';
+    document.getElementById('resumen-area').style.display = 'block';
+    loadSummary();
+  } else {
+    document.getElementById('pin-error').style.display = 'block';
+    input.value = '';
+    input.focus();
+  }
+}
+
+document.getElementById('pin-input').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') checkPin();
+});
+
+function applyTheme() { document.body.classList.toggle('dark', isNightHours()); }
+function tickClock() {
+  const d = new Date();
+  document.getElementById('live-clock').textContent = `${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
+}
+
+// ================= BASE DE DATOS (Supabase) =================
+// Estos dos valores son la "dirección" y la "llave pública" de tu base de
+// datos en Supabase. No son secretos de administrador: están pensados para
+// vivir en el código del navegador. Si alguna vez cambiás de proyecto en
+// Supabase, es lo ÚNICO que hay que reemplazar acá abajo.
+const SUPABASE_URL = "https://jkoxjgklsadwcmflgldw.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_plnwV-5Z0hlmCWpQXX8O8Q_gKiqsv-r";
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// --- Guardado con respaldo local + cola offline ---
+// Guardamos cada mes como un registro en la tabla "kv_store" (clave = "heladeria-fichero:2026-08",
+// valor = todas las marcas de ese mes). Si por algún motivo no hay internet, la marca
+// se guarda en este dispositivo y se reintenta sola apenas vuelve la conexión.
+// OJO: esta app comparte la base de datos con la de la pizzería ("fichero:AAAA-MM"),
+// por eso acá las claves llevan el prefijo "heladeria-": así nunca se mezclan los datos.
+const KEY_PREFIX = 'heladeria-fichero:';
+const LOCAL_PREFIX = 'fichero_heladeria::';
+let storageMode = 'cloud';
+const PENDING_QUEUE_KEY = LOCAL_PREFIX + '_pendingQueue';
+
+function updateModeFlag() {
+  const el = document.getElementById('mode-flag');
+  const queue = getPendingQueue();
+  const pendingCount = Object.keys(queue).length;
+  if (storageMode === 'cloud') {
+    if (pendingCount > 0) {
+      el.textContent = `Sin conexión · ${pendingCount} cambio${pendingCount === 1 ? '' : 's'} por sincronizar`;
+      el.className = 'mode-flag pending';
+    } else {
+      el.textContent = 'Guardado compartido';
+      el.className = 'mode-flag cloud';
+    }
+  } else {
+    el.textContent = 'Guardado solo en este dispositivo';
+    el.className = 'mode-flag local';
+  }
+}
+function getPendingQueue() {
+  try { return JSON.parse(localStorage.getItem(PENDING_QUEUE_KEY) || '{}'); } catch (e) { return {}; }
+}
+function setPendingQueue(q) { localStorage.setItem(PENDING_QUEUE_KEY, JSON.stringify(q)); updateModeFlag(); }
+
+// Junta dos copias de un mismo mes sin perder fichajes de ninguna: une las marcas
+// por persona+entrada y, si una copia tiene la salida y la otra no, se queda con la salida.
+function mergeSessions(a, b) {
+  const out = {};
+  [a, b].forEach(src => {
+    Object.keys(src || {}).forEach(date => {
+      if (!out[date]) out[date] = [];
+      (src[date] || []).forEach(s => {
+        const i = out[date].findIndex(x => x.person === s.person && x.in === s.in);
+        if (i === -1) out[date].push({ ...s });
+        else if (!out[date][i].out && s.out) out[date][i].out = s.out;
+      });
+    });
+  });
+  return out;
+}
+
+async function retryPendingQueue() {
+  const queue = getPendingQueue();
+  const keys = Object.keys(queue);
+  if (keys.length === 0) return;
+  for (const key of keys) {
+    try {
+      const { data, error: getErr } = await sb.from('kv_store').select('value').eq('key', key).maybeSingle();
+      if (getErr) throw getErr;
+      const merged = mergeSessions(data && data.value ? data.value : {}, JSON.parse(queue[key]));
+      const { error } = await sb.from('kv_store').upsert({ key, value: merged });
+      if (error) throw error;
+      localStorage.setItem(LOCAL_PREFIX + key, JSON.stringify(merged));
+      const monthStr = key.replace(KEY_PREFIX, '');
+      if (monthCaches[monthStr]) monthCaches[monthStr] = merged;
+      delete queue[key];
+    } catch (e) { /* sigue pendiente */ }
+  }
+  setPendingQueue(queue);
+}
+
+function withTimeout(promise, ms) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms)),
+  ]);
+}
+
+async function storageSet(key, valueObj) {
+  const str = JSON.stringify(valueObj);
+  localStorage.setItem(LOCAL_PREFIX + key, str);
+  try {
+    const { error } = await withTimeout(sb.from('kv_store').upsert({ key, value: valueObj }), 8000);
+    if (error) throw error;
+    const queue = getPendingQueue();
+    if (queue[key]) { delete queue[key]; setPendingQueue(queue); }
+    storageMode = 'cloud';
+    updateModeFlag();
+  } catch (e) {
+    const queue = getPendingQueue();
+    queue[key] = str;
+    setPendingQueue(queue);
+  }
+}
+
+async function storageGet(key) {
+  const queue = getPendingQueue();
+  if (queue[key]) {
+    let queued = {};
+    try { queued = JSON.parse(queue[key]); } catch (e) {}
+    try {
+      const { data, error } = await withTimeout(sb.from('kv_store').select('value').eq('key', key).maybeSingle(), 8000);
+      if (error) throw error;
+      return mergeSessions(data && data.value ? data.value : {}, queued);
+    } catch (e) { return queued; }
+  }
+  try {
+    const { data, error } = await withTimeout(sb.from('kv_store').select('value').eq('key', key).maybeSingle(), 8000);
+    if (error) throw error;
+    const value = (data && data.value) ? data.value : {};
+    localStorage.setItem(LOCAL_PREFIX + key, JSON.stringify(value));
+    storageMode = 'cloud';
+    updateModeFlag();
+    return value;
+  } catch (e) {
+    const raw = localStorage.getItem(LOCAL_PREFIX + key);
+    if (raw) return JSON.parse(raw);
+    // Sin conexión y sin copia en este dispositivo: NO devolvemos "mes vacío".
+    // Cada mes se guarda completo en un solo registro, así que guardar sobre un
+    // mes vacío inventado podría borrar las marcas de ese mes en la nube.
+    throw e;
+  }
+}
+window.addEventListener('online', retryPendingQueue);
+setInterval(retryPendingQueue, 30000);
+
+async function getMonthData(monthStr, forceRefresh) {
+  if (!forceRefresh && monthCaches[monthStr]) return monthCaches[monthStr];
+  const data = await withTimeout(storageGet(`${KEY_PREFIX}${monthStr}`), 8000);
+  monthCaches[monthStr] = data;
+  return data;
+}
+async function saveMonthData(monthStr, data) {
+  monthCaches[monthStr] = data;
+  await withTimeout(storageSet(`${KEY_PREFIX}${monthStr}`, data), 8000);
+}
+
+// ================= FICHAR =================
+async function buildStatusMap() {
+  const today = todayStr();
+  const yesterday = prevDateStr(today);
+  const monthToday = today.slice(0, 7);
+  const monthYesterday = yesterday.slice(0, 7);
+
+  const dataToday = await getMonthData(monthToday, false);
+  const dataYesterday = (monthYesterday === monthToday) ? dataToday : await getMonthData(monthYesterday, false);
+
+  const map = {};
+  PEOPLE.forEach(p => { map[p] = { status: 'afuera', since: null, sinceDate: null }; });
+
+  [[yesterday, dataYesterday], [today, dataToday]].forEach(([date, monthData]) => {
+    const sessions = monthData[date] || [];
+    sessions.forEach(s => {
+      if (!map.hasOwnProperty(s.person)) return;
+      if (s.out === null) {
+        map[s.person] = { status: 'adentro', since: s.in, sinceDate: date };
+      } else {
+        // sesión cerrada: si no hay ninguna abierta después, queda "afuera"
+        if (map[s.person].status !== 'adentro') map[s.person] = { status: 'afuera', since: null, sinceDate: null };
+      }
+    });
+  });
+
+  return map;
+}
+
+async function renderPeopleGrid() {
+  const grid = document.getElementById('people-grid');
+  let statusMap;
+  try {
+    statusMap = await buildStatusMap();
+  } catch (e) {
+    console.error('No se pudo leer el estado:', e);
+    statusMap = {};
+    PEOPLE.forEach(p => statusMap[p] = { status: 'afuera', since: null, sinceDate: null });
+  }
+
+  grid.innerHTML = '';
+  PEOPLE.forEach(person => {
+    const info = statusMap[person] || { status: 'afuera', since: null, sinceDate: null };
+    const isIn = info.status === 'adentro';
+    const card = document.createElement('div');
+    card.className = 'person-card';
+    const sinceLabel = isIn
+      ? (info.sinceDate === todayStr() ? `Desde las ${info.since}` : `Desde ayer ${info.since}`)
+      : '';
+    card.innerHTML = `
+      <div class="person-card-name">${person}</div>
+      <div class="status-line ${isIn ? 'in' : 'out'}">
+        <span class="status-dot"></span>
+        <span class="status-text">${isIn ? 'Adentro' : 'Afuera'}</span>
+      </div>
+      <div class="since-text">${sinceLabel}</div>
+      <button class="punch-btn ${isIn ? 'exit' : 'enter'}" onclick="togglePunch('${person}', this)">
+        ${isIn ? 'Marcar salida' : 'Marcar entrada'}
+      </button>
+    `;
+    grid.appendChild(card);
+  });
+}
+
+async function togglePunch(person, btnEl) {
+  btnEl.disabled = true;
+  btnEl.textContent = 'Guardando...';
+  try {
+    const today = todayStr();
+    const yesterday = prevDateStr(today);
+    const monthToday = today.slice(0, 7);
+    const monthYesterday = yesterday.slice(0, 7);
+
+    const dataToday = await getMonthData(monthToday, true);
+    const dataYesterday = (monthYesterday === monthToday) ? dataToday : await getMonthData(monthYesterday, true);
+
+    // buscar sesión abierta (ayer o hoy)
+    let openRef = null;
+    [[yesterday, dataYesterday, monthYesterday], [today, dataToday, monthToday]].forEach(([date, monthData, monthStr]) => {
+      const sessions = monthData[date] || [];
+      const idx = sessions.findIndex(s => s.person === person && s.out === null);
+      if (idx !== -1) openRef = { date, monthData, monthStr, idx };
+    });
+
+    if (openRef) {
+      openRef.monthData[openRef.date][openRef.idx].out = nowTimeStr();
+      await saveMonthData(openRef.monthStr, openRef.monthData);
+    } else {
+      if (!dataToday[today]) dataToday[today] = [];
+      dataToday[today].push({ person, in: nowTimeStr(), out: null });
+      await saveMonthData(monthToday, dataToday);
+    }
+
+    await renderPeopleGrid();
+    await renderTodayLog();
+  } catch (e) {
+    console.error('Error al fichar:', e);
+    alert('No se pudo guardar la marca. Probá de nuevo.');
+    btnEl.disabled = false;
+  }
+}
+
+async function renderTodayLog() {
+  const wrap = document.getElementById('today-log');
+  const today = todayStr();
+  const monthStr = today.slice(0, 7);
+  let data;
+  try {
+    data = await getMonthData(monthStr, false);
+  } catch (e) {
+    wrap.innerHTML = '<div class="empty-note">No se pudo cargar el registro de hoy.</div>';
+    return;
+  }
+  const sessions = data[today] || [];
+  if (sessions.length === 0) {
+    wrap.innerHTML = '<div class="empty-note">Todavía no hay marcas hoy.</div>';
+    return;
+  }
+
+  const events = [];
+  sessions.forEach(s => {
+    events.push({ time: s.in, person: s.person, type: 'in' });
+    if (s.out) events.push({ time: s.out, person: s.person, type: 'out' });
+  });
+  events.sort((a, b) => a.time.localeCompare(b.time));
+
+  wrap.innerHTML = events.map(e => `
+    <div class="log-row">
+      <span class="log-time">${e.time}</span>
+      <span class="log-person">${e.person}</span>
+      <span class="log-type ${e.type}">${e.type === 'in' ? 'Entrada' : 'Salida'}</span>
+    </div>
+  `).join('');
+}
+
+// ================= RESUMEN =================
+let currentMonthRawData = null;
+let currentMonthLoaded = null;
+
+async function loadSummary() {
+  const month = document.getElementById('month-input').value || currentMonthStr();
+  document.getElementById('month-input').value = month;
+  document.getElementById('summary-loading').style.display = 'block';
+  document.getElementById('summary-error').style.display = 'none';
+  document.getElementById('summary-content').style.display = 'none';
+
+  let data;
+  try {
+    data = await getMonthData(month, true);
+  } catch (e) {
+    document.getElementById('summary-loading').style.display = 'none';
+    document.getElementById('summary-error').style.display = 'block';
+    document.getElementById('summary-error').textContent = 'No se pudo leer el resumen. Volvé a intentar.';
+    console.error(e);
+    return;
+  }
+
+  currentMonthRawData = data;
+  currentMonthLoaded = month;
+  populateDayFilterOptions(month);
+
+  document.getElementById('summary-loading').style.display = 'none';
+  document.getElementById('summary-content').style.display = 'block';
+
+  applyFiltersAndRender();
+}
+
+function populateDayFilterOptions(month) {
+  const sel = document.getElementById('day-filter');
+  const prevValue = sel.value;
+  const [yy, mm] = month.split('-').map(Number);
+  const daysInMonth = new Date(yy, mm, 0).getDate();
+  let html = '<option value="">Todos los días</option>';
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${yy}-${pad2(mm)}-${pad2(d)}`;
+    html += `<option value="${dateStr}">${pad2(d)}/${pad2(mm)}</option>`;
+  }
+  sel.innerHTML = html;
+  sel.value = (prevValue && prevValue.startsWith(month)) ? prevValue : '';
+}
+
+function computeAggregates(data, activePeople, dayFilter, personFilter) {
+  const today = todayStr();
+  const personMinutes = {}; activePeople.forEach(p => personMinutes[p] = 0);
+  const daysWorkedSet = {}; activePeople.forEach(p => daysWorkedSet[p] = new Set());
+  const closedSessionsCount = {}; activePeople.forEach(p => closedSessionsCount[p] = 0);
+  const dailyMatrix = {}; // { dateStr: { person: minutos } }
+  const weekdayMinutes = [0, 0, 0, 0, 0, 0, 0]; // domingo..sábado
+  const anomalies = [];
+  const rows = [];
+
+  Object.keys(data).sort().forEach(dateStr => {
+    if (dayFilter && dateStr !== dayFilter) return;
+    const sessions = data[dateStr] || [];
+    sessions.forEach(s => {
+      if (personFilter && s.person !== personFilter) return;
+      if (s.out) {
+        const mins = minutesBetween(s.in, s.out);
+        if (personMinutes.hasOwnProperty(s.person)) {
+          personMinutes[s.person] += mins;
+          daysWorkedSet[s.person].add(dateStr);
+          closedSessionsCount[s.person]++;
+        }
+        rows.push({ date: dateStr, person: s.person, in: s.in, out: s.out, mins, open: false });
+
+        if (!dailyMatrix[dateStr]) dailyMatrix[dateStr] = {};
+        dailyMatrix[dateStr][s.person] = (dailyMatrix[dateStr][s.person] || 0) + mins;
+
+        const [y, m, d] = dateStr.split('-').map(Number);
+        const weekdayIdx = new Date(y, m - 1, d).getDay();
+        weekdayMinutes[weekdayIdx] += mins;
+      } else {
+        rows.push({ date: dateStr, person: s.person, in: s.in, out: null, mins: null, open: true });
+        if (dateStr !== today) anomalies.push({ date: dateStr, person: s.person, in: s.in });
+      }
+    });
+  });
+
+  const daysWorked = {}; activePeople.forEach(p => daysWorked[p] = daysWorkedSet[p].size);
+  return { personMinutes, daysWorked, closedSessionsCount, dailyMatrix, weekdayMinutes, anomalies, rows };
+}
+
+function applyFiltersAndRender() {
+  const data = currentMonthRawData;
+  if (!data) return;
+  const personFilter = document.getElementById('person-filter').value;
+  const dayFilter = document.getElementById('day-filter').value;
+  const activePeople = personFilter ? [personFilter] : PEOPLE;
+
+  const { dailyMatrix, rows } = computeAggregates(data, activePeople, dayFilter, personFilter);
+
+  renderDailyMatrix(dailyMatrix, activePeople, personFilter);
+  renderLogTable(rows);
+}
+
+document.getElementById('person-filter').addEventListener('change', applyFiltersAndRender);
+document.getElementById('day-filter').addEventListener('change', applyFiltersAndRender);
+
+function renderDailyMatrix(dailyMatrix, activePeople, personFilter) {
+  document.getElementById('daily-matrix-sub').textContent = personFilter
+    ? `Horas de ${personFilter}, día por día`
+    : 'Cuánto trabajó cada uno, día por día';
+
+  const table = document.getElementById('daily-matrix');
+  const dates = Object.keys(dailyMatrix).sort();
+  if (dates.length === 0) {
+    table.innerHTML = '<tr><td style="padding:14px 0; text-align:center; color:var(--ink-soft);">Sin turnos cerrados en este período.</td></tr>';
+    return;
+  }
+  let html = '<thead><tr><th>Fecha</th><th>Día</th>';
+  activePeople.forEach(p => { html += `<th>${p}</th>`; });
+  if (activePeople.length > 1) html += '<th>Total</th>';
+  html += '</tr></thead><tbody>';
+
+  const personTotals = {}; activePeople.forEach(p => personTotals[p] = 0);
+  let grandTotal = 0;
+
+  dates.forEach(dateStr => {
+    const [, mo, da] = dateStr.split('-');
+    const dayData = dailyMatrix[dateStr];
+    let dayTotal = 0;
+    html += `<tr><td>${da}/${mo}</td><td>${weekdayShort(dateStr)}</td>`;
+    activePeople.forEach(p => {
+      const mins = dayData[p] || 0;
+      dayTotal += mins;
+      personTotals[p] += mins;
+      html += `<td class="num">${mins > 0 ? (mins / 60).toFixed(1) : ''}</td>`;
+    });
+    grandTotal += dayTotal;
+    if (activePeople.length > 1) html += `<td class="num"><b>${(dayTotal / 60).toFixed(1)}</b></td>`;
+    html += '</tr>';
+  });
+
+  html += `<tr class="totals-row"><td colspan="2"><b>Total del mes</b></td>`;
+  activePeople.forEach(p => { html += `<td class="num"><b>${(personTotals[p] / 60).toFixed(1)}</b></td>`; });
+  if (activePeople.length > 1) html += `<td class="num"><b>${(grandTotal / 60).toFixed(1)}</b></td>`;
+  html += '</tr>';
+
+  html += '</tbody>';
+  table.innerHTML = html;
+}
+
+
+function renderLogTable(rows) {
+  const table = document.getElementById('log-table');
+  if (rows.length === 0) {
+    table.innerHTML = '<tr><td style="padding:14px 0; text-align:center; color:var(--ink-soft);">Sin marcas este mes todavía.</td></tr>';
+    return;
+  }
+  rows.sort((a, b) => (a.date + a.in).localeCompare(b.date + b.in)).reverse();
+  let html = '<thead><tr><th>Fecha</th><th>Día</th><th>Persona</th><th>Entrada</th><th>Salida</th><th>Horas</th></tr></thead><tbody>';
+  let totalMins = 0;
+  rows.forEach(r => {
+    const [, mo, da] = r.date.split('-');
+    if (r.mins !== null) totalMins += r.mins;
+    html += `<tr class="${r.open ? 'open' : ''}">
+      <td>${da}/${mo}</td>
+      <td>${weekdayShort(r.date)}</td>
+      <td>${r.person}</td>
+      <td class="num">${r.in}</td>
+      <td class="num">${r.out || '—'}</td>
+      <td class="num">${r.mins !== null ? formatHM(r.mins) : '–'}</td>
+    </tr>`;
+  });
+  html += `<tr class="totals-row">
+    <td colspan="5"><b>Total del mes</b></td>
+    <td class="num"><b>${formatHM(totalMins)}</b></td>
+  </tr>`;
+  html += '</tbody>';
+  table.innerHTML = html;
+}
+
+document.getElementById('month-input').addEventListener('change', loadSummary);
+
+// ================= EXPORTAR A EXCEL =================
+// La librería se carga recién al tocar el botón (no al abrir la app), así un
+// corte de red no afecta al resto de la app, solo a esta exportación puntual.
+let xlsxLoadPromise = null;
+function ensureXLSXLoaded() {
+  if (typeof XLSX !== 'undefined') return Promise.resolve();
+  if (xlsxLoadPromise) return xlsxLoadPromise;
+  xlsxLoadPromise = new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    script.onload = () => resolve();
+    script.onerror = () => { xlsxLoadPromise = null; reject(new Error('load failed')); };
+    document.head.appendChild(script);
+    setTimeout(() => { xlsxLoadPromise = null; reject(new Error('timeout')); }, 8000);
+  });
+  return xlsxLoadPromise;
+}
+
+async function exportExcel() {
+  if (!currentMonthRawData) return;
+  // el export siempre es del mes completo, sin filtros — para sueldos conviene
+  // tener siempre el panorama entero, no solo lo que estás mirando en pantalla
+  const month = currentMonthLoaded;
+  const s = computeAggregates(currentMonthRawData, PEOPLE, '', '');
+
+  if (s.anomalies.length > 0) {
+    const proceed = confirm(
+      `Hay ${s.anomalies.length} turno(s) sin cerrar de días anteriores — esas horas NO están sumadas en el total. ¿Exportar igual?`
+    );
+    if (!proceed) return;
+  }
+
+  const btn = document.getElementById('export-btn');
+  btn.disabled = true;
+  btn.textContent = 'Generando...';
+
+  try {
+    await ensureXLSXLoaded();
+
+    const wb = XLSX.utils.book_new();
+
+    // Hoja 1: Resumen por persona (para calcular sueldos)
+    const personRows = [["Persona", "Horas totales (decimal)", "Horas (hh:mm)", "Días trabajados", "Turnos cerrados", "Turnos sin cerrar", "Promedio hs/turno"]];
+    PEOPLE.forEach(p => {
+      const mins = s.personMinutes[p] || 0;
+      const closedCount = s.rows.filter(r => r.person === p && !r.open).length;
+      const openCount = s.rows.filter(r => r.person === p && r.open).length;
+      const avg = closedCount > 0 ? +((mins / closedCount) / 60).toFixed(2) : 0;
+      personRows.push([p, +(mins / 60).toFixed(2), formatHM(mins), s.daysWorked[p] || 0, closedCount, openCount, avg]);
+    });
+    const wsPerson = XLSX.utils.aoa_to_sheet(personRows);
+    wsPerson['!cols'] = [{ wch: 14 }, { wch: 20 }, { wch: 14 }, { wch: 16 }, { wch: 16 }, { wch: 18 }, { wch: 18 }];
+    XLSX.utils.book_append_sheet(wb, wsPerson, "Resumen por persona");
+
+    // Hoja 2: Horas por día (matriz)
+    const dates = Object.keys(s.dailyMatrix).sort();
+    const matrixRows = [["Fecha", ...PEOPLE, "Total"]];
+    dates.forEach(dateStr => {
+      const dayData = s.dailyMatrix[dateStr];
+      let dayTotal = 0;
+      const row = [dateStr];
+      PEOPLE.forEach(p => {
+        const mins = dayData[p] || 0;
+        dayTotal += mins;
+        row.push(mins > 0 ? +(mins / 60).toFixed(2) : '');
+      });
+      row.push(+(dayTotal / 60).toFixed(2));
+      matrixRows.push(row);
+    });
+    const wsMatrix = XLSX.utils.aoa_to_sheet(matrixRows);
+    wsMatrix['!cols'] = [{ wch: 12 }, ...PEOPLE.map(() => ({ wch: 10 })), { wch: 10 }];
+    XLSX.utils.book_append_sheet(wb, wsMatrix, "Horas por día");
+
+    // Hoja 3: Detalle día por día
+    const detailRows = [["Fecha", "Persona", "Entrada", "Salida", "Horas (decimal)"]];
+    s.rows.slice().sort((a, b) => (a.date + a.in).localeCompare(b.date + b.in)).forEach(r => {
+      detailRows.push([
+        r.date, r.person, r.in,
+        r.out || '(sin cerrar)',
+        r.mins !== null ? +(r.mins / 60).toFixed(2) : '',
+      ]);
+    });
+    const wsDetail = XLSX.utils.aoa_to_sheet(detailRows);
+    wsDetail['!cols'] = [{ wch: 12 }, { wch: 12 }, { wch: 10 }, { wch: 14 }, { wch: 16 }];
+    XLSX.utils.book_append_sheet(wb, wsDetail, "Detalle");
+
+    XLSX.writeFile(wb, `horarios_heladeria_${month}.xlsx`);
+  } catch (e) {
+    console.error('Error al exportar:', e);
+    alert('No se pudo generar el Excel (¿falló la conexión?). Probá de nuevo.');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Descargar Excel del mes';
+  }
+}
+
+// init
+(function init() {
+  try {
+    updateModeFlag();
+    document.getElementById('month-input').value = currentMonthStr();
+    document.getElementById('person-filter').innerHTML =
+      '<option value="">Todos</option>' + PEOPLE.map(p => `<option value="${p}">${p}</option>`).join('');
+    applyTheme();
+    tickClock();
+    setInterval(tickClock, 1000);
+    renderPeopleGrid();
+    renderTodayLog();
+    retryPendingQueue();
+    setInterval(() => { applyTheme(); renderPeopleGrid(); }, 20000);
+  } catch (e) {
+    console.error('Error al iniciar la app:', e);
+  }
+})();
+</script>
+
+</body>
+</html>
